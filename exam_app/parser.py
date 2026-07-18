@@ -4,12 +4,27 @@ import json
 
 from pydantic import ValidationError
 from langchain_ollama import ChatOllama
+from janome.tokenizer import Tokenizer
 
 from .models import ParsedExam
 
 
+_tokenizer = Tokenizer()
+
 class ParseError(Exception):
     pass
+
+def apply_wakachigaki(text: str) -> str:
+    if not text:
+        return text
+    return " ".join(token.surface for token in _tokenizer.tokenize(text))
+
+def apply_wakachigaki_to_exam(exam: ParsedExam) -> None:
+    for section in exam.sections:
+        for question in section.questions:
+            question.question_text = apply_wakachigaki(question.question_text)
+            for option in question.options:
+                option.text = apply_wakachigaki(option.text)
 
 
 def ollama_generate_url(base_url: str) -> str:
@@ -72,6 +87,7 @@ def parse_with_ollama(
     exam = exam.model_copy(update={"source_filename": filename})
     if issues := exam.completeness_issues():
         raise ParseError("AI could not create a complete exam after an automatic repair pass: " + "; ".join(issues))
+    apply_wakachigaki_to_exam(exam)
     return exam
 
 

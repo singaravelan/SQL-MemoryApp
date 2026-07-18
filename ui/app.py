@@ -56,9 +56,9 @@ def take_exam_page(repo: ExamRepository) -> None:
                 st.write(section.instructions)
             for question in section.questions:
                 key = f"{section.section_number}:{question.question_number}"
-                st.write(f"{question.question_number}. {question.question_text}")
-                labels = {f"{o.option_number}. {o.text}": o.option_number for o in question.options}
-                selected = st.radio("Answer", list(labels), key=key, index=None, label_visibility="collapsed")
+                st.write(f"{question.question_number}. {question.question_text.strip()}")
+                labels = {f"{o.option_number}. {o.text.strip()}": o.option_number for o in question.options}
+                selected = st.radio("Answer", list(labels), key=key, index=None, label_visibility="collapsed", horizontal=True)
                 if selected:
                     answers[key] = labels[selected]
         submitted = st.form_submit_button("Submit exam", type="primary")

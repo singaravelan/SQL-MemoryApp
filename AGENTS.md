@@ -15,13 +15,13 @@ The development container uses Python 3.11 and starts the same Streamlit command
 
 ## Coding Style & Naming Conventions
 
-Use four-space indentation, standard Python naming (`snake_case` for functions and variables, `PascalCase` for classes), and type annotations for public APIs. Keep UI, persistence, and scheduling responsibilities separate. Favor small, focused functions and composition over inheritance; inject database paths, clocks, and external dependencies so core logic remains testable. Preserve UTC-aware timestamps and existing domain terminology such as `unlock_lesson` and `difficulty_level`.
+Use four-space indentation, standard Python naming (`snake_case` for functions and variables, `PascalCase` for classes), and type annotations for public APIs. Strictly adhere to SOLID principles (Single Responsibility, Open-Closed, Liskov Substitution, Interface Segregation, Dependency Inversion) to ensure modular, maintainable, and scalable design. Keep UI, persistence, and scheduling responsibilities separate. Favor small, focused functions and composition over inheritance; inject database paths, clocks, and external dependencies so core logic remains testable. Preserve UTC-aware timestamps and existing domain terminology such as `unlock_lesson` and `difficulty_level`.
 
 No formatter or linter is configured currently. Follow nearby code and avoid drive-by formatting changes.
 
 ## Testing Guidelines
 
-Tests use `pytest` and names follow `test_<behavior>.py` / `test_<behavior>`. Add coverage for any changed scheduling, persistence, or UI-page behavior. Use fixtures from `tests/conftest.py`, especially the temporary `db_path` and deterministic `fixed_now`; do not rely on the tracked `srs.db` in tests. Mark tests with the existing `p0`, `p1`, `p2`, `unit`, or `integration` markers as appropriate.
+Tests use `pytest` and names follow `test_<behavior>.py` / `test_<behavior>`. All new logic and code modifications must be strictly covered by `pytest`. Add coverage for any changed scheduling, persistence, or UI-page behavior, ensuring test-driven rigor. Use fixtures from `tests/conftest.py`, especially the temporary `db_path` and deterministic `fixed_now`; do not rely on the tracked `srs.db` in tests. Mark tests with the existing `p0`, `p1`, `p2`, `unit`, or `integration` markers as appropriate.
 
 ## Commit & Pull Request Guidelines
 

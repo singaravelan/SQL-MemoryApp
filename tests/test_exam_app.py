@@ -1,6 +1,6 @@
 import pytest
 
-from exam_app.parser import ParseError, ollama_generate_url, validate_exam_json
+from exam_app.parser import ParseError, ollama_base_url, ollama_generate_url, validate_exam_json
 from exam_app.repository import ExamRepository
 
 
@@ -17,14 +17,22 @@ def test_valid_exam_can_be_saved_and_scored(tmp_path):
 
 
 def test_incomplete_answer_is_rejected():
-    bad = exam_json().replace('"correct_option_number":2', '"correct_option_number":3')
+    bad = exam_json().replace('"correct_option_number":2', '"correct_option_number":null')
     with pytest.raises(ParseError):
         validate_exam_json(bad, "sample.txt")
+
+
+def test_parser_issues_are_rejected_before_save():
+    draft = exam_json().replace('"parsing_issues":[]', '"parsing_issues":["Answer key is missing"]')
+    assert validate_exam_json(draft, "sample.txt", require_complete=False).parsing_issues
+    with pytest.raises(ParseError, match="Resolve parser issues"):
+        validate_exam_json(draft, "sample.txt")
 
 
 def test_ollama_url_accepts_server_or_api_path():
     assert ollama_generate_url("http://localhost:11434") == "http://localhost:11434/api/generate"
     assert ollama_generate_url("http://localhost:11434/api") == "http://localhost:11434/api/generate"
+    assert ollama_base_url("http://localhost:11434/api/generate") == "http://localhost:11434"
 
 
 def test_settings_are_persisted(tmp_path):

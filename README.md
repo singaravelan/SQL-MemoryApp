@@ -1,6 +1,6 @@
 # Exam Quiz
 
-Local Streamlit quiz app for importing text exams, parsing them through a local Ollama model, and saving quiz attempts in SQLite. UTF-8 (including Japanese) is preserved.
+Local Streamlit quiz app for importing text exams, parsing them through local Ollama via LangChain schema-guided output, and saving quiz attempts in SQLite. UTF-8 (including Japanese) is preserved.
 
 ## Start
 
@@ -15,8 +15,8 @@ Set `OLLAMA_MODEL`, `OLLAMA_URL`, `OLLAMA_TIMEOUT_SECONDS` (default 12000), and 
 
 ## Use
 
-1. In **Ingest Exam**, upload a UTF-8 `.txt` file and select **Parse with Ollama**.
-2. Review or correct the returned JSON, then **Validate and save**. Existing filenames require the explicit replacement checkbox.
+1. In **Ingest Exam**, upload a UTF-8 `.txt` file and select **Parse and save with AI**.
+2. The app runs schema-guided extraction and one automatic AI repair pass, then saves only a complete exam. Existing filenames require the explicit replacement checkbox.
 3. Select **Take Exam**, answer the questions, and submit. Attempts are stored in `exams.db` and visible under **Attempts**.
 
-The parser rejects missing answer keys, fewer than two options, invalid correct options, duplicate section/question pairs, and any model-reported `parsing_issues`. The JSON editor is the retry/edit path for malformed model output.
+The parser rejects missing answer keys, fewer than two options, invalid correct options, duplicate section/question pairs, and unresolved model issues. It never asks you to edit generated JSON; retry the AI import if it cannot safely produce a complete exam.

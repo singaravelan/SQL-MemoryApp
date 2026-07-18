@@ -12,16 +12,21 @@ class Question(BaseModel):
     question_number: int = Field(ge=1)
     question_text: str = Field(min_length=1)
     options: list[Option] = Field(min_length=2)
-    correct_option_number: int = Field(ge=1)
+    correct_option_number: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def correct_option_exists(self) -> "Question":
         numbers = [option.option_number for option in self.options]
         if len(numbers) != len(set(numbers)):
             raise ValueError("option numbers must be unique")
-        if self.correct_option_number not in numbers:
-            raise ValueError("correct_option_number must match an option")
         return self
+
+    def answer_issue(self) -> str | None:
+        if self.correct_option_number is None:
+            return "correct option number is missing"
+        if self.correct_option_number not in [option.option_number for option in self.options]:
+            return "correct option number does not match an option"
+        return None
 
 
 class Section(BaseModel):
@@ -46,6 +51,12 @@ class ParsedExam(BaseModel):
                 if key in seen:
                     raise ValueError("question numbers must be unique within a section")
                 seen.add(key)
-        if self.parsing_issues:
-            raise ValueError("parser reported issues: " + "; ".join(self.parsing_issues))
         return self
+
+    def completeness_issues(self) -> list[str]:
+        issues = list(self.parsing_issues)
+        for section in self.sections:
+            for question in section.questions:
+                if issue := question.answer_issue():
+                    issues.append(f"Section {section.section_number}, question {question.question_number}: {issue}")
+        return issues

@@ -5,7 +5,7 @@ import os
 
 import streamlit as st
 
-from exam_app.parser import ParseError, parse_with_ollama, validate_exam_json
+from exam_app.parser import ParseError, parse_with_ollama
 from exam_app.repository import ExamRepository
 
 
@@ -28,22 +28,14 @@ def ingest_page(repo: ExamRepository, model: str, url: str, timeout_seconds: int
     st.caption(upload.name)
     st.text_area("Raw text preview", raw_text, height=220, disabled=True)
     replace = st.checkbox("Replace an existing exam with this filename")
-    if st.button("Parse with Ollama", type="primary"):
-        with st.spinner("Parsing exam with Ollama…"):
+    if st.button("Parse and save with AI", type="primary"):
+        with st.spinner("Extracting, validating, and repairing the exam with Ollama…"):
             try:
                 parsed = parse_with_ollama(raw_text, upload.name, model, url, timeout_seconds)
-                st.session_state["parsed_exam_json"] = parsed.model_dump_json(indent=2)
-                st.success("Parsed. Review the JSON before saving.")
-            except ParseError as exc:
+                repo.save_exam(parsed, raw_text, replace)
+                st.success(f"AI validated and saved {parsed.exam_title}.")
+            except (ParseError, ValueError) as exc:
                 st.error(str(exc))
-    edited = st.text_area("Validated exam JSON", st.session_state.get("parsed_exam_json", ""), height=360)
-    if st.button("Validate and save"):
-        try:
-            parsed = validate_exam_json(edited, upload.name)
-            repo.save_exam(parsed, raw_text, replace)
-            st.success(f"Saved {parsed.exam_title}.")
-        except (ParseError, ValueError) as exc:
-            st.error(str(exc))
 
 
 def take_exam_page(repo: ExamRepository) -> None:
@@ -93,6 +85,16 @@ def attempts_page(repo: ExamRepository) -> None:
 
 def run() -> None:
     st.set_page_config(page_title="Exam Quiz", page_icon="📝", layout="wide")
+    st.markdown("""
+        <style>
+            div[data-testid="stMarkdownContainer"] p {
+                white-space: pre-wrap;
+            }
+            div[data-testid="stRadio"] label p {
+                white-space: pre-wrap;
+            }
+        </style>
+    """, unsafe_allow_html=True)
     repo = repository()
     st.sidebar.header("Ollama settings")
     if "ollama_model" not in st.session_state:

@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from langchain_ollama import ChatOllama
 from janome.tokenizer import Tokenizer
 
-from .models import ParsedExam
+from .models import ParsedExam, Question, Section
 
 
 _tokenizer = Tokenizer()
@@ -18,6 +18,79 @@ def apply_wakachigaki(text: str) -> str:
     if not text:
         return text
     return " ".join(token.surface for token in _tokenizer.tokenize(text))
+
+
+def clean_exam_text(raw_text: str) -> str:
+    if not raw_text:
+        return raw_text
+
+    lines = []
+    for line in raw_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("### Section"):
+            continue
+        if stripped.startswith("Result:"):
+            continue
+        if stripped.startswith("Per-question feedback"):
+            continue
+        if stripped.startswith("Correct Options"):
+            continue
+        if stripped.startswith("❌") or stripped.startswith("✅"):
+            continue
+        if stripped.startswith("actual file"):
+            continue
+        if stripped.startswith("http://localhost") or stripped.startswith("https://localhost"):
+            continue
+        if stripped.startswith("1.") and "[](" in stripped:
+            continue
+        lines.append(line)
+
+    cleaned = "\n".join(lines).strip()
+    if not cleaned:
+        return raw_text.strip()
+    return cleaned
+
+
+def apply_answer_key_mapping(exam: ParsedExam, raw_text: str) -> None:
+    if not raw_text:
+        return
+
+    entries: dict[tuple[int, int], int] = {}
+    for line in raw_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if not stripped.startswith("Section ") or ", Question " not in stripped or ":" not in stripped:
+            continue
+        prefix, answer_part = stripped.split(":", 1)
+        if "Question" not in prefix or "(" not in answer_part or ")" not in answer_part:
+            continue
+        section_text, question_text = prefix.split(",", 1)
+        section_number = int(section_text.replace("Section ", "").strip())
+        question_number = int(question_text.replace("Question", "").strip())
+        answer_number = int(answer_part.strip().strip("()"))
+        entries[(section_number, question_number)] = answer_number
+
+    for section in exam.sections:
+        section_entries = sorted(
+            question_number for (section_number, question_number) in entries if section_number == section.section_number
+        )
+        if not section_entries:
+            continue
+
+        if len(section_entries) >= len(section.questions):
+            target_numbers = section_entries[: len(section.questions)]
+        else:
+            target_numbers = section_entries + [
+                section_entries[-1] + offset for offset in range(1, len(section.questions) - len(section_entries) + 1)
+            ]
+
+        for index, question in enumerate(section.questions):
+            question.question_number = target_numbers[index]
+            question.correct_option_number = entries.get((section.section_number, question.question_number))
+
 
 def apply_wakachigaki_to_exam(exam: ParsedExam) -> None:
     for section in exam.sections:
@@ -78,13 +151,15 @@ def _structured_exam(prompt: str, model: str, base_url: str, timeout_seconds: in
 def parse_with_ollama(
     raw_text: str, filename: str, model: str, base_url: str, timeout_seconds: int = 12000
 ) -> ParsedExam:
+    cleaned_text = clean_exam_text(raw_text)
     try:
-        exam = _structured_exam(parsing_prompt(filename, raw_text), model, base_url, timeout_seconds)
+        exam = _structured_exam(parsing_prompt(filename, cleaned_text), model, base_url, timeout_seconds)
         if exam.completeness_issues():
-            exam = _structured_exam(repair_prompt(filename, raw_text, exam), model, base_url, timeout_seconds)
+            exam = _structured_exam(repair_prompt(filename, cleaned_text, exam), model, base_url, timeout_seconds)
     except Exception as exc:
         raise ParseError(f"Could not reach Ollama or request structured output: {exc}") from exc
     exam = exam.model_copy(update={"source_filename": filename})
+    apply_answer_key_mapping(exam, cleaned_text)
     if issues := exam.completeness_issues():
         raise ParseError("AI could not create a complete exam after an automatic repair pass: " + "; ".join(issues))
     apply_wakachigaki_to_exam(exam)

@@ -1,3 +1,6 @@
 ollama serve
 ollama pull llama3.2
 streamlit run app.py
+
+cd /d C:\Users\Singa-Darshu\Documents\GitHub\SQL-MemoryApp
+.venv\Scripts\activate.bat
